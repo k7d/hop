@@ -1,4 +1,4 @@
-(ns hop.core
+(ns hop.server
   (:import (io.netty.channel.nio NioEventLoopGroup)
            (io.netty.bootstrap ServerBootstrap)
            (io.netty.channel ChannelOption ChannelInitializer ChannelHandlerAdapter ChannelHandlerContext ChannelFutureListener ChannelInboundHandlerAdapter)
