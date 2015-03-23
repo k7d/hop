@@ -46,7 +46,8 @@
   (cond
     (instance? String body) (-> body
                                 (.getBytes)
-                                (Unpooled/wrappedBuffer))))
+                                (Unpooled/wrappedBuffer))
+    :else (Unpooled/buffer 0)))
 
 (defn ring-response->netty-response [res]
   (let [content (ring-body->netty-content (:body res))
