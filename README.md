@@ -14,7 +14,7 @@ Under the hood, Hop is built on top of [Netty framework](http://netty.io/).
   (:require [clojure.core.async :refer [go <! timeout]]
             [hop.server :as server]))
 
-(defn handler [_]
+(defn handler [req]
   (go
     ; simulate wait (in real world this would be waiting for some I/O to happen)
     (<! (timeout 1000))
