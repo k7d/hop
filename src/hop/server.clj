@@ -110,11 +110,12 @@
 (defprotocol HopServer
   (stop-server [_] "Stutdowns the server."))
 
-(defn start-server [handler]
+(defn start-server [handler {:keys [port]
+                             :or {port 8080}}]
   (let [event-loop-group (NioEventLoopGroup.)
         channel-class NioServerSocketChannel
         channel (-> (server-bootstrap event-loop-group channel-class handler)
-                    (.bind 8080)
+                    (.bind port)
                     (.sync)
                     (.channel))]
     (reify HopServer
