@@ -1,6 +1,7 @@
 (ns hop.server
   (:require [clojure.tools.logging :as log]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [clojure.core.async :refer [go <! timeout]])
   (:import (io.netty.channel.nio NioEventLoopGroup)
            (io.netty.bootstrap ServerBootstrap)
            (io.netty.channel ChannelOption
@@ -59,25 +60,28 @@
     (.setInt headers HttpHeaderNames/CONTENT_LENGTH (.readableBytes content))
     nres))
 
-(defn netty-request-handler [ring-request-handler]
+(defn netty-request-handler [async-ring-request-handler]
   (proxy [ChannelInboundHandlerAdapter] []
     (channelReadComplete [^ChannelHandlerContext ctx]
       (.flush ctx))
 
     (channelRead [^ChannelHandlerContext ctx msg]
       (when (instance? FullHttpRequest msg)
-        (when (HttpHeaderUtil/is100ContinueExpected msg)
-          (.write ctx (DefaultFullHttpResponse. HttpVersion/HTTP_1_1 HttpResponseStatus/CONTINUE)))
-        (let [response (-> (netty-request->ring-request msg (.channel ctx))
-                           (ring-request-handler)
-                           (ring-response->netty-response))]
-          (if (HttpHeaderUtil/isKeepAlive msg)
-            (do
-              (.set (.headers response) HttpHeaderNames/CONNECTION HttpHeaderValues/KEEP_ALIVE)
-              (.write ctx response))
-            (-> ctx
-                (.write response)
-                (.addListener ChannelFutureListener/CLOSE))))))
+        (go
+          (when (HttpHeaderUtil/is100ContinueExpected msg)
+            (.write ctx (DefaultFullHttpResponse. HttpVersion/HTTP_1_1 HttpResponseStatus/CONTINUE)))
+          (let [response (-> (netty-request->ring-request msg (.channel ctx))
+                             (async-ring-request-handler)
+                             (<!)
+                             (ring-response->netty-response))]
+            (if (HttpHeaderUtil/isKeepAlive msg)
+              (do
+                (.set (.headers response) HttpHeaderNames/CONNECTION HttpHeaderValues/KEEP_ALIVE)
+                (-> ctx
+                    (.writeAndFlush response)))
+              (-> ctx
+                  (.writeAndFlush response)
+                  (.addListener ChannelFutureListener/CLOSE)))))))
 
     (exceptionCaught [^ChannelHandlerContext ctx ^Throwable cause]
       (log/error cause "error handling request")
@@ -118,9 +122,12 @@
         (-> event-loop-group (.shutdownGracefully))))))
 
 (defn hello-world-handler [_]
-  {:status 200
-   :headers {"Content-Type" "text/html"}
-   :body "Hello World\n"})
+  (go
+    ; simulate wait (in real world this would be waiting for some I/O to happen)
+    (<! (timeout 1000))
+    {:status 200
+     :headers {"Content-Type" "text/html"}
+     :body "Hello World\n"}))
 
 (defn -main [& args]
   (start-server hello-world-handler))
