@@ -12,35 +12,27 @@
            (io.netty.handler.logging LoggingHandler
                                      LogLevel)
            (io.netty.channel.socket SocketChannel)
-           (io.netty.handler.codec.http HttpServerCodec
-                                        HttpRequest
-                                        HttpHeaderUtil
+           (io.netty.handler.codec.http HttpHeaderUtil
                                         DefaultFullHttpResponse
                                         HttpVersion
                                         HttpResponseStatus
                                         HttpHeaderNames
                                         HttpHeaderValues HttpResponseEncoder HttpRequestDecoder HttpObjectAggregator FullHttpRequest)
-           (io.netty.buffer Unpooled ByteBuf ByteBufInputStream)
-           (java.io Closeable))
+           (io.netty.buffer Unpooled ByteBufInputStream))
   (:gen-class))
-
-(def question-marg)
 
 (defn netty-request->ring-request [^FullHttpRequest req
                                    ^Channel ch]
-  (let [question-mark-index (-> req .getUri (.indexOf (int \?)))]
+  (let [question-mark-index (-> req .getUri (.indexOf (int \?)))
+        uri (.getUri req)]
     {:keep-alive?    (HttpHeaderUtil/isKeepAlive req)
      :request-method (-> req .getMethod .name str/lower-case keyword)
      :headers        (->> req .headers (into {}))
-     :uri            (let [idx (long question-mark-index)]
-                       (if (neg? idx)
-                         (.getUri req)
-                         (.substring (.getUri req) 0 idx)))
-     :query-string   (let [idx (long question-mark-index)
-                           uri (.getUri req)]
-                       (if (neg? idx)
-                         nil
-                         (.substring uri (unchecked-inc idx))))
+     :uri            (if (pos? question-mark-index)
+                       (.substring uri 0 question-mark-index)
+                       uri)
+     :query-string   (if (pos? question-mark-index)
+                       (.substring uri (unchecked-inc question-mark-index)))
      :server-name    (some-> ch (.localAddress) (.getHostName))
      :server-port    (some-> ch (.localAddress) (.getPort))
      :remote-addr    (some-> ch (.remoteAddress) (.getAddress) (.getHostAddress))
@@ -50,9 +42,10 @@
 (defn ring-body->netty-content [body]
   ; TODO - based on Ring specs also need to handle ISeq, File and InputStream
   ; https://github.com/ring-clojure/ring/wiki/Concepts#responses
-  (-> body
-      (.getBytes)
-      (Unpooled/wrappedBuffer)))
+  (cond
+    (instance? String body) (-> body
+                                (.getBytes)
+                                (Unpooled/wrappedBuffer))))
 
 (defn ring-response->netty-response [res]
   (let [content (ring-body->netty-content (:body res))
