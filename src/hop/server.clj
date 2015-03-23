@@ -35,7 +35,7 @@
         (let [response (DefaultFullHttpResponse.
                          HttpVersion/HTTP_1_1
                          HttpResponseStatus/OK
-                         (Unpooled/wrappedBuffer (.getBytes "HELLO WORLD")))]
+                         (Unpooled/wrappedBuffer (.getBytes "HELLO WORLD\n")))]
           (doto (.headers response)
             (.set HttpHeaderNames/CONTENT_TYPE "text/plain")
             (.setInt HttpHeaderNames/CONTENT_LENGTH (.readableBytes (.content response))))
@@ -58,24 +58,26 @@
           (.addLast "http-server" (HttpServerCodec.))
           (.addLast "request-handler" (request-handler))))))
 
+(defn server-bootstrap [event-loop-group channel-class]
+  (-> (ServerBootstrap.)
+      (.option ChannelOption/SO_BACKLOG (int 1024))
+      (.option ChannelOption/MAX_MESSAGES_PER_READ Integer/MAX_VALUE)
+      (.group event-loop-group)
+      (.channel channel-class)
+      (.handler (LoggingHandler. LogLevel/INFO))
+      (.childHandler (initializer))
+      (.childOption ChannelOption/MAX_MESSAGES_PER_READ Integer/MAX_VALUE)))
+
 (defn start-server []
-  (let [boss-group (NioEventLoopGroup. 1)
-        worker-group (NioEventLoopGroup.)]
-    (try
-      (-> (ServerBootstrap.)
-          (.option ChannelOption/SO_BACKLOG (Integer. 1024))
-          (.group boss-group worker-group)
-          (.channel NioServerSocketChannel)
-          (.handler (LoggingHandler. LogLevel/INFO))
-          (.childHandler (initializer))
-          (.bind 8080)
-          (.sync)
-          (.channel)
-          (.closeFuture)
-          (.sync))
-      (finally
-        (.shutdownGracefully boss-group)
-        (.shutdownGracefully worker-group)))))
+  (let [event-loop-group (NioEventLoopGroup.)
+        channel-class NioServerSocketChannel
+        bootstrap (server-bootstrap event-loop-group channel-class)
+        channel (-> bootstrap (.bind 8080) (.sync) (.channel))]
+    (reify Closeable
+      (close [_]
+        (log/error "Closing")
+        (-> channel (.close) (.sync))
+        (-> event-loop-group (.shutdownGracefully) (.sync))))))
 
 (defn -main [& args]
   (start-server))
