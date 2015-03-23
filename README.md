@@ -4,7 +4,7 @@ Hop is a minimalistic asynchronous web server for Clojure designed to be used in
 
 Hop's request and response formats are compatible with [Ring](https://github.com/ring-clojure/ring/wiki/Concepts). Hop's request handlers however must return core.async channel and supply the response via the channel.
 
-Under the hood, Hop is build on top of Netty framework.
+Under the hood, Hop is built on top of Netty framework.
 
 
 ## Example
