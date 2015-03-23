@@ -2,12 +2,25 @@
   (:require [clojure.tools.logging :as log])
   (:import (io.netty.channel.nio NioEventLoopGroup)
            (io.netty.bootstrap ServerBootstrap)
-           (io.netty.channel ChannelOption ChannelInitializer ChannelHandlerAdapter ChannelHandlerContext ChannelFutureListener ChannelInboundHandlerAdapter)
+           (io.netty.channel ChannelOption
+                             ChannelInitializer
+                             ChannelHandlerContext
+                             ChannelFutureListener
+                             ChannelInboundHandlerAdapter)
            (io.netty.channel.socket.nio NioServerSocketChannel)
-           (io.netty.handler.logging LoggingHandler LogLevel)
+           (io.netty.handler.logging LoggingHandler
+                                     LogLevel)
            (io.netty.channel.socket SocketChannel)
-           (io.netty.handler.codec.http HttpServerCodec HttpRequest HttpHeaderUtil DefaultFullHttpResponse HttpVersion HttpResponseStatus HttpHeaderNames HttpHeaderValues)
-           (io.netty.buffer Unpooled))
+           (io.netty.handler.codec.http HttpServerCodec
+                                        HttpRequest
+                                        HttpHeaderUtil
+                                        DefaultFullHttpResponse
+                                        HttpVersion
+                                        HttpResponseStatus
+                                        HttpHeaderNames
+                                        HttpHeaderValues)
+           (io.netty.buffer Unpooled)
+           (java.io Closeable))
   (:gen-class))
 
 (defn request-handler []
